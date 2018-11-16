@@ -163,7 +163,7 @@ def summarization_model(train_documents_token, train_references_token, test_docu
 
 documents, references = load_corpus(documents_path, reference_path)
 
-word_to_id, word_vectors = utility_function.get_wordmatrix(medical=False)
+word_to_id, word_vectors = utility_function.get_wordmatrix(medical=True)
 rouge1_score = []
 rouge2_score = []
 kf = KFold(n_splits=5)
@@ -187,7 +187,7 @@ for train_index, test_index in kf.split(documents):
     pre_train_references, train_references_token = preprocess_document(train_references)
     pre_test_documents, test_documents_token = preprocess_document(test_documents)
         
-    score = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=False, opt_lambda=0.05)
+    score = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=True, opt_lambda=0.05)
     
     rouge1_score.append(score['ROUGE-1'])
     rouge2_score.append(score['ROUGE-2'])
