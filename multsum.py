@@ -119,6 +119,18 @@ For questions, please contact olof@mogren.one. I will answer after capacity.
 
 '''
 
+def F1_kobayashi(S, vectors):
+  summary_vec = np.zeros_like(vectors[0])
+  documents_vec = np.zeros_like(vectors[0])
+
+  for index in S:
+    summary_vec += vectors[index]
+
+  for vec in vectors:
+    documents_vec += vec
+
+  return (summary_vec.dot(documents_vec) / np.linalg.norm(summary_vec) / np.linalg.norm(documents_vec))
+
 def L1(S, w, alpha, a):
   if not alpha:
     alpha = a/(1.0*w.shape[0])
@@ -385,6 +397,68 @@ def get_def_sentsims(documents, stopwordsFilename, idfs):
   #  print("\n")
   
   return ret_dict
+
+def select_sentences_kobayashi(summarySize,
+                               matrices,
+                               sentenceVectors,
+                               documents,
+                               lengthUnit,
+                               idfVectorFileName,
+                               docName,
+                               use_aggregate_for_clustering = False,
+                               clustering_matrix=None,
+                               r=1):
+  selected = set()
+  aggMatrix = getMultipliedAggregateSimilarities(matrices)
+
+  K = getK(count_sentences(documents))
+  if clustering_matrix is not None:
+    clustering = get_clustering(documents, DEFAULT_STOPWORDS, clustering_matrix)
+  elif use_aggregate_for_clustering:
+    clustering = get_clustering(documents, DEFAULT_STOPWORDS, aggMatrix)
+  elif not sentenceVectors is None:
+    clustering = get_clustering_by_vectors(sentenceVectors, K, idfVectorFileName, docName)
+  else:
+    clustering = get_clustering(documents, DEFAULT_STOPWORDS)
+    
+  while summary_is_too_short(selected, documents, lengthUnit, summarySize):
+    max_val = 0.0
+    argmax = None
+    for i in range(0,aggMatrix.shape[0]):
+      if i not in selected:
+      before = F1_kobayashi(selected, sentenceVectors)
+      selected.add(i)
+      curr = F1_kobayashi(selected, sentenceVectors)
+
+      curr = (curr - before) / math.pow(len(documents[i]), r)
+
+      if curr > max_val:
+        argmax = i
+        max_val = curr
+        selected.remove(i)
+
+    if argmax:
+      selected.add(argmax) #internal: zero-based.
+    else:
+      break
+
+  currentlyBestCScore = F1_kobayashi(selected, sentenceVectors)
+  currentlyBestSingleton = None
+  for i in range(0, aggMatrix.shape[0]):
+    singleton = set()
+    singleton.add(i)
+    if not summary_is_too_long(singleton, documents, lengthUnit, summarySize):
+      singletonSummaryScore = F1_kobayashi(singleton, sentenceVectors)
+      if singletonSummaryScore > currentlyBestCScore:
+        currentlyBestCScore = singletonSummaryScore
+        currentlyBestSingleton = i
+            
+  if currentlyBestSingleton:
+    print("Using singleton!")
+    selected = set()
+    selected.add(currentlyBestSingleton)
+    
+  return selected
   
 def select_sentences(summarySize,
                      matrices,
@@ -466,6 +540,8 @@ def select_sentences(summarySize,
    # As described by lin-bilmes.
    # 
    #/
+
+
 
 def get_idfs_from_doc_collection(documents, stopwords):
   documentCountsForTerm = dict() # dictfrom string to integer
@@ -620,6 +696,47 @@ def summarize_matrix_files_u(matrix, clustering_matrix, documents, stopwordsFile
       return_string.append(' '.join(get_sentence_index(i, documents_token_list)))
       if not quiet:
         print('  ' + ' '.join(get_sentence_index(i, documents_token_list)))
+  return return_string
+
+def summarize_matrix_files_kobayashi(matrix, clustering_matrix, documents, stopwordsFilename=DEFAULT_STOPWORDS,
+                             length=DEFAULT_SUMMARY_LENGTH, unit=UNIT_WORDS, output_numbers=True,
+                             use_aggregate_for_clustering=True, quiet=False, sentenceVectors=None):
+  matrices = matrix
+        
+  documents_token_list = []
+  for document in documents:
+    documents_token = []
+    for sentence in document:
+      documents_token.append(sentence.split(' '))
+      documents_token_list.append(documents_token)
+                        
+                        
+  summary_set = select_sentences_kobayashi(length,
+                                 matrices,
+                                 sentenceVectors,
+                                 documents_token_list,
+                                 unit,
+                                 None,
+                                 'summarization_doc',
+                                 use_aggregate_for_clustering=use_aggregate_for_clustering,
+                                 clustering_matrix=clustering_matrix,
+                                 r=0)
+  summary_list = list(summary_set)
+  summary_list.sort()
+  return_string = []
+
+  if not quiet:
+    print 'Summary:'
+  for i in summary_list:
+    if output_numbers or not documents:
+      return_string += (i + 1) + '\n'
+      if not quiet:
+        print(i + 1)  # one-based output, not zero-based.
+    else:
+      return_string.append(' '.join(get_sentence_index(i, documents_token_list)))
+      if not quiet:
+        print('  ' + ' '.join(get_sentence_index(i, documents_token_list)))
+
   return return_string
 
 def get_sentence_embedding_avg(sentence, wordmodel, w2v_backend, quiet=False):

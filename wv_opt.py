@@ -72,6 +72,25 @@ class WV_opt():
 
         return self.A
 
+    def fit_inverse_taguchi(self, summary, document):
+        self.A = np.zeros((self.W0.shape[0], self.W0.shape[0]))
+        weight = self.W0.dot(self.W0.T)
+        distance_vecs = []
+
+        documents_num = len(document)
+
+        for s_vec, d_vec in zip(summary, document):
+            distance_vec = d_vec - s_vec
+            distance_vecs.append((distance_vec.dot(distance_vec.T)) / documents_num)
+
+        for distance_matrix in distance_vecs:
+            self.A += distance_matrix
+                
+        self.A += self.lamb * weight
+        self.A = np.linalg.inv(self.A)
+        self.A = self.lamb * weight.dot(self.A)
+
+        return self.A
 
 if __name__ == '__main__':
     W0 = np.array([[1,0],

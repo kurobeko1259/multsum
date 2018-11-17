@@ -1,11 +1,56 @@
+# -*- coding: utf-8 -*-
 import gensim
 import nltk
 import numpy as np
 from sklearn.cluster import KMeans
 from nltk.corpus import stopwords
+import summary
+import math
 
 stopWords = stopwords.words('english')
 stopWords += ['.']
+
+word_to_idf = idf_dict('./tfidf')
+print word_to_idf
+
+def idf_dict(file_dir):
+    files = build_source_file.find_all_files(file_dir)
+    documents = []
+    vocabulary = []
+    for file in files:
+        with open(file, 'r') as f:
+            line = f.read().split('¥n')
+            print line
+            re_line = build_source_file.reform_text(line)
+            re_token, re_line = utility_function.tokenize(re_line, rm_stop=True)
+
+            extended_token = []
+            for tokens in re_token:
+                extended_token.extend(tokens)
+
+            documents.append(extended_token)
+
+    for document in documents:
+        for word in document:
+            if word not in vocabulary:
+                vocabulary.append(word)
+
+    N = len(documents)
+    word_to_idf = {}
+    
+
+    for word in vocabulary:
+        cnt = 0
+        for document in documents:
+            if word in document:
+                cnt += 1
+
+        word_to_idf[word] = math.log(N / cnt) + 1
+
+    return word_to_idf
+
+
+
 
 def tokenize(docs, rm_stop=False):
     """
@@ -90,7 +135,7 @@ def sentence_length(doc):
     return length
 
 
-def get_phrase_vector_tfidf(docs, word_to_id=None, word_vectors=None):
+def get_phrase_vector_tfidf(docs, word_to_id=None, word_vectors=None, word_to_idf=None):
     """
     calc document vector
     :param doc: list of pretrained document(word token list)
@@ -98,15 +143,25 @@ def get_phrase_vector_tfidf(docs, word_to_id=None, word_vectors=None):
     :param word_vectors: list of word vectors (np array)
     :return: sentence vectors in all documents
     """
-    collection = nltk.TextCollection(docs)
+    
+    extended_doc = []
+    for doc in docs:
+        extended_doc.extend(doc)
+    
+    word_to_tf ={}
+    for token in extended_doc:
+        word_to_tf.setdefault(token, 0)
+        word_to_tf[token] += 1
 
     phrase_vectors = []
 
     for doc in docs:
         phrase_vector = np.zeros(word_vectors.shape[1])
         for term in doc:
-            phrase_vector += collection.tf_idf(term, doc) * word_vectors[word_to_id[term]]
+            if term in word_to_id:
+                phrase_vector += word_to_tf[term] * word_to_idf[term] * word_vectors[word_to_id[term]]
 
+        phrase_vector = phrase_vector / len(doc)
         phrase_vectors.append(phrase_vector)
 
     phrase_vectors = np.array(phrase_vectors)
