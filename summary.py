@@ -48,7 +48,7 @@ def load_corpus(doc_path, ref_path):
             abstract_num += len(abst.split(' '))
 
         if abstract != [] and (abstract_num >= 100) and (len(body) >= 50):
-            index_to_filename[len(documents)] = article_id + '_summary.txt'
+            index_to_filename[len(documents)] = article_id
             documents.append(body)
             summary.append(abstract)
 
@@ -317,8 +317,10 @@ for train_index, test_index in kf.split(documents):
     summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=False, opt_lambda=0.05, tfidf=False, word_to_idf=None)
 
     for i in range(len(test_references)):
-        with open(output_root_dir + '/' + index_to_test_output_path[i], 'w') as f:
-            f.write('¥n'.join(summary_list[i]).encode('utf-8'))
+        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
+            f.write('¥n'.join(summary_list[i]))
+        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
+            f.write('¥n'.join(test_references[i]))
 
 
 
@@ -326,8 +328,10 @@ for train_index, test_index in kf.split(documents):
     summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=True, opt_lambda=0.05, tfidf=False, word_to_idf=None)
     
     for i in range(len(test_references)):
-        with open(output_root_dir + '/' + index_to_test_output_path[i], 'w') as f:
-            f.write('¥n'.join(summary_list[i]).encode('utf-8'))
+        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
+            f.write('¥n'.join(summary_list[i]))
+        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
+            f.write('¥n'.join(test_references[i]))
 
 
 
@@ -335,8 +339,10 @@ for train_index, test_index in kf.split(documents):
     summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=False, opt_lambda=0.05, tfidf=True, word_to_idf=word_to_idf)
     
     for i in range(len(test_references)):
-        with open(output_root_dir + '/' + index_to_test_output_path[i], 'w') as f:
-            f.write('¥n'.join(summary_list[i]).encode('utf-8'))
+        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
+            f.write('¥n'.join(summary_list[i]))
+        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
+            f.write('¥n'.join(test_references[i]))
 
 
 
@@ -344,8 +350,10 @@ for train_index, test_index in kf.split(documents):
     summary_list = summarization_model_kobayashi(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=True, opt_lambda=0.05, tfidf=True, word_to_idf=word_to_idf)
     
     for i in range(len(test_references)):
-        with open(output_root_dir + '/' + index_to_test_output_path[i], 'w') as f:
-            f.write('¥n'.join(summary_list[i]).encode('utf-8'))
+        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
+            f.write('¥n'.join(summary_list[i]))
+        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
+            f.write('¥n'.join(test_references[i]))
 
 """
 print rouge1_score

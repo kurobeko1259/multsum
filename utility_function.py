@@ -147,11 +147,13 @@ def get_phrase_vector_tfidf(docs, word_to_id=None, word_vectors=None, word_to_id
     extended_doc = []
     for doc in docs:
         extended_doc.extend(doc)
+
+    N = len(extended_doc)
     
     word_to_tf ={}
     for token in extended_doc:
         word_to_tf.setdefault(token, 0)
-        word_to_tf[token] += 1
+        word_to_tf[token] += (1 / N)
 
     phrase_vectors = []
 
