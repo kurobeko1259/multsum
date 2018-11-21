@@ -4,39 +4,37 @@ import nltk
 import numpy as np
 from sklearn.cluster import KMeans
 from nltk.corpus import stopwords
-import summary
 import math
+import build_source_file
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 
 stopWords = stopwords.words('english')
 stopWords += ['.']
 
-word_to_idf = idf_dict('./tfidf')
-print word_to_idf
 
 def idf_dict(file_dir):
     files = build_source_file.find_all_files(file_dir)
     documents = []
-    vocabulary = []
+    vocabulary = set()
     for file in files:
         with open(file, 'r') as f:
             line = f.read().split('¥n')
-            print line
             re_line = build_source_file.reform_text(line)
-            re_token, re_line = utility_function.tokenize(re_line, rm_stop=True)
+            re_token, re_line = tokenize(re_line, rm_stop=True)
 
             extended_token = []
             for tokens in re_token:
                 extended_token.extend(tokens)
 
-            documents.append(extended_token)
+            documents.append(set(extended_token))
 
     for document in documents:
-        for word in document:
-            if word not in vocabulary:
-                vocabulary.append(word)
+        vocabulary = vocabulary | document
 
-    N = len(documents)
+    N = float(len(documents))
     word_to_idf = {}
+    print N
     
 
     for word in vocabulary:
@@ -148,12 +146,12 @@ def get_phrase_vector_tfidf(docs, word_to_id=None, word_vectors=None, word_to_id
     for doc in docs:
         extended_doc.extend(doc)
 
-    N = len(extended_doc)
+    N = float(len(extended_doc))
     
     word_to_tf ={}
     for token in extended_doc:
         word_to_tf.setdefault(token, 0)
-        word_to_tf[token] += (1 / N)
+        word_to_tf[token] += 1
 
     phrase_vectors = []
 
@@ -161,7 +159,9 @@ def get_phrase_vector_tfidf(docs, word_to_id=None, word_vectors=None, word_to_id
         phrase_vector = np.zeros(word_vectors.shape[1])
         for term in doc:
             if term in word_to_id:
-                phrase_vector += word_to_tf[term] * word_to_idf[term] * word_vectors[word_to_id[term]]
+                if term not in word_to_idf:
+                    word_to_idf[term] = 1
+                phrase_vector += (word_to_tf[term] / N) * word_to_idf[term] * word_vectors[word_to_id[term]]
 
         phrase_vector = phrase_vector / len(doc)
         phrase_vectors.append(phrase_vector)
@@ -343,6 +343,23 @@ def modified_greedy_algorithm(sentence_length, sentence_value, cluster_list, sim
     return g_total
 
 
+def decomposition(vecs, n=2):
+    pca = PCA(n_components=n)
+    pca.fit(vecs)
+    data_pca = pca.transform(vecs)
+
+    return data_pca
+
+def plot(documents_vecs, documents_annotates, summary_vecs, summary_annotation):
+
+    for i in range(len(documents_vecs)):
+        plt.plot(documents_vecs[i][0], documents_vecs[i][1], 'o', color='b')
+        #plt.annotate(documents_annotates[i], (documents_vecs[i][0], documents_vecs[i][1]))
+
+    for i in range(len(summary_vecs)):
+        plt.plot(summary_vecs[i][0], summary_vecs[i][1], 'o', color='r')
+
+    plt.show()
 
 """
 docs_string = ["It will be sunny tomorrow.", "It is rainy today.", "I play tennis because it is cloudy."]

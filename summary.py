@@ -51,6 +51,8 @@ def load_corpus(doc_path, ref_path):
             index_to_filename[len(documents)] = article_id
             documents.append(body)
             summary.append(abstract)
+            cnt += 1
+
 
     print len(documents)
     return documents, summary, index_to_filename
@@ -106,10 +108,10 @@ def transform_vecs(vecs):
 def summarize_kobayashi(documents_token, documents, word_to_id, word_vectors, clustering_wv, tfidf, word_to_idf):
     if tfidf:
         documents_vecs = create_document_vecs_tfidf(documents_token, word_to_id, word_vectors, word_to_idf)
-        references_vecs = create_document_vecs_tfidf(references_token, word_to_id, word_vectors, word_to_idf)
+        cluster_documents_vecs = create_document_vecs_tfidf(documents_token, word_to_id, clustering_wv, word_to_idf)
     else:
         documents_vecs = create_document_vecs(documents_token, word_to_id, word_vectors)
-        references_vecs = create_document_vecs(references_token, word_to_id, word_vectors)
+        cluster_documents_vecs = create_document_vecs(documents_token, word_to_id, clustering_wv)
     
     summary_list = []
     for documents_vec,cluster_documents_vec, document in zip(documents_vecs, cluster_documents_vecs, documents):
@@ -132,10 +134,10 @@ def summarize_kobayashi(documents_token, documents, word_to_id, word_vectors, cl
 def summarize(documents_token, documents, word_to_id, word_vectors, clustering_wv, tfidf, word_to_idf):
     if tfidf:
         documents_vecs = create_document_vecs_tfidf(documents_token, word_to_id, word_vectors, word_to_idf)
-        references_vecs = create_document_vecs_tfidf(references_token, word_to_id, word_vectors, word_to_idf)
+        cluster_documents_vecs = create_document_vecs_tfidf(documents_token, word_to_id, clustering_wv, word_to_idf)
     else:
         documents_vecs = create_document_vecs(documents_token, word_to_id, word_vectors)
-        references_vecs = create_document_vecs(references_token, word_to_id, word_vectors)
+        cluster_documents_vecs = create_document_vecs(documents_token, word_to_id, clustering_wv)
 
     summary_list = []
     for documents_vec,cluster_documents_vec, document in zip(documents_vecs, cluster_documents_vecs, documents):
@@ -176,7 +178,7 @@ def opt_vecs(documents_token, references_token, word_to_id, word_vectors, tfidf,
     documents_vecs = transform_vecs(documents_sum_vecs)
 
     invert_ref = []
-    for reference_vec in reference_vecs:
+    for reference_vec in references_vecs:
         invert_ref.append(transform_vecs(reference_vec))
 
     return documents_vecs, invert_ref
@@ -248,30 +250,27 @@ def summarization_model(train_documents_token, train_references_token, test_docu
 
     return summary_list
 
-    """
-    test_references_for_rouge = []
-    for test_reference in test_references:
-        test_references_for_rouge.append([test_reference])
-
-    rouge = Pythonrouge(summary_file_exist=False,
-                        summary=summary_list, reference=test_references_for_rouge,
-                        n_gram=2, ROUGE_SU4=True, ROUGE_L=False,
-                        recall_only=True, stemming=True, stopwords=False,
-                        word_level=True, length_limit=False, length=500,
-                        use_cf=False, cf=95, scoring_formula='average',
-                        resampling=True, samples=1000, favor=True, p=0.5)
-    score = rouge.calc_score()
-
-    return score
-    """
 
 def culc_rouge(summary_path, reference_path):
-    rouge = Pythonrouge(summary_file_exist=True,
-                        summary=summary_path, reference=reference_path,
+    files = build_source_file.find_all_files(summary_path)
+    summary = []
+    references = []
+    for file in files:
+        id = file.split('/')[-1].split('.')[0]
+        with open(file, 'r') as f:
+            lines = f.read().split('\n')
+            summary.append(lines)
+
+        with open(reference_path + '/' + id + '.1.txt', 'r') as f:
+            lines = f.read().split('\n')
+            references.append([lines])
+
+    rouge = Pythonrouge(summary_file_exist=False,
+                        summary=summary, reference=references,
                         n_gram=2, ROUGE_SU4=True, ROUGE_L=False,
-                        recall_only=True, stemming=True, stopwords=False,
+                        recall_only=False, stemming=True, stopwords=False,
                         word_level=True, length_limit=False, length=500,
-                        use_cf=False, cf=95, scoring_formula='average',
+                        use_cf=True, cf=95, scoring_formula='average',
                         resampling=True, samples=1000, favor=True, p=0.5)
     score = rouge.calc_score()
 
@@ -280,18 +279,22 @@ def culc_rouge(summary_path, reference_path):
 def rouge_score_to_file(score, rouge_output_path):
     with open(rouge_output_path, 'w') as f:
         for method, val in score.iteritems():
-            f.write(method + ':' + str(val) + '¥n')
+            f.write(method + ':' + str(val) + '\n')
 
 
 documents, references, index_to_filename = load_corpus(documents_path, reference_path)
 
-word_to_id, word_vectors = utility_function.get_wordmatrix(medical=False)
-word_to_idf = idf_dict(documents_path, word_to_id)
+word_to_id, word_vectors = utility_function.get_wordmatrix(medical=True)
+
+#word_to_idf = utility_function.idf_dict(documents_path)
+print "prephase is done"
 rouge1_score = []
 rouge2_score = []
 kf = KFold(n_splits=5)
-
+cnt = 0
 for train_index, test_index in kf.split(documents):
+    cnt += 1
+    print cnt
     train_documents = []
     train_references = []
     test_documents = []
@@ -303,7 +306,7 @@ for train_index, test_index in kf.split(documents):
         train_references.append(references[i])
     
     for i in test_index:
-        index_to_test_output_path[len(test_references)] = index_to_test_output_path[i]
+        index_to_test_output_path[len(test_references)] = index_to_filename[i]
         test_documents.append(documents[i])
         test_references.append(references[i])
         
@@ -313,54 +316,25 @@ for train_index, test_index in kf.split(documents):
 
 
 
-    output_root_dir = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_notoptimized'
-    summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=False, opt_lambda=0.05, tfidf=False, word_to_idf=None)
-
-    for i in range(len(test_references)):
-        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
-            f.write('¥n'.join(summary_list[i]))
-        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
-            f.write('¥n'.join(test_references[i]))
-
-
-
-    output_root_dir = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_optimized'
-    summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=True, opt_lambda=0.05, tfidf=False, word_to_idf=None)
+    output_root_dir = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_optimized_0.00001'
+    summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=True, opt_lambda=0.00001, tfidf=False, word_to_idf=None)
     
     for i in range(len(test_references)):
         with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
-            f.write('¥n'.join(summary_list[i]))
+            f.write('\n'.join(summary_list[i]))
         with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
-            f.write('¥n'.join(test_references[i]))
+            f.write('\n'.join(test_references[i]))
 
 
 
-    output_root_dir = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_notoptimized_tfidf'
-    summary_list = summarization_model(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=False, opt_lambda=0.05, tfidf=True, word_to_idf=word_to_idf)
-    
-    for i in range(len(test_references)):
-        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
-            f.write('¥n'.join(summary_list[i]))
-        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
-            f.write('¥n'.join(test_references[i]))
+
+rouge_summary_path = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_optimized_0.00001/summary'
+rouge_reference_path = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_optimized_0.00001/reference'
+rouge_output_path = '/media/suzukilab/UbuntuData/corpus/obesity/shogo_default_optimized_0.00001/result/rouge_score.txt'
+rouge_score = culc_rouge(rouge_summary_path, rouge_reference_path)
+rouge_score_to_file(rouge_score, rouge_output_path)
 
 
 
-    output_root_dir = '/media/suzukilab/UbuntuData/corpus/obesity/taguchi'
-    summary_list = summarization_model_kobayashi(train_documents_token, train_references_token, test_documents_token, pre_test_documents, test_references, word_to_id, word_vectors, opt=True, opt_lambda=0.05, tfidf=True, word_to_idf=word_to_idf)
-    
-    for i in range(len(test_references)):
-        with open(output_root_dir + '/summary/' + index_to_test_output_path[i] + '.txt', 'w') as f:
-            f.write('¥n'.join(summary_list[i]))
-        with open(output_root_dir + '/reference/' + index_to_test_output_path[i] + '.1.txt', 'w') as f:
-            f.write('¥n'.join(test_references[i]))
-
-"""
-print rouge1_score
-print rouge2_score
-
-print sum(rouge1_score) / len(rouge1_score)
-print sum(rouge2_score) / len(rouge2_score)
-"""
 
 

@@ -120,8 +120,8 @@ For questions, please contact olof@mogren.one. I will answer after capacity.
 '''
 
 def F1_kobayashi(S, vectors):
-  summary_vec = np.zeros_like(vectors[0])
-  documents_vec = np.zeros_like(vectors[0])
+  summary_vec = numpy.zeros_like(vectors[0])
+  documents_vec = numpy.zeros_like(vectors[0])
 
   for index in S:
     summary_vec += vectors[index]
@@ -129,7 +129,7 @@ def F1_kobayashi(S, vectors):
   for vec in vectors:
     documents_vec += vec
 
-  return (summary_vec.dot(documents_vec) / np.linalg.norm(summary_vec) / np.linalg.norm(documents_vec))
+  return (summary_vec.dot(documents_vec) / numpy.linalg.norm(summary_vec) / numpy.linalg.norm(documents_vec))
 
 def L1(S, w, alpha, a):
   if not alpha:
@@ -409,6 +409,7 @@ def select_sentences_kobayashi(summarySize,
                                clustering_matrix=None,
                                r=1):
   selected = set()
+  before = 0
   aggMatrix = getMultipliedAggregateSimilarities(matrices)
 
   K = getK(count_sentences(documents))
@@ -426,19 +427,20 @@ def select_sentences_kobayashi(summarySize,
     argmax = None
     for i in range(0,aggMatrix.shape[0]):
       if i not in selected:
-      before = F1_kobayashi(selected, sentenceVectors)
-      selected.add(i)
-      curr = F1_kobayashi(selected, sentenceVectors)
+        selected.add(i)
+        curr = F1_kobayashi(selected, sentenceVectors)
 
-      curr = (curr - before) / math.pow(len(documents[i]), r)
+        curr = (curr - before) / math.pow(len(documents[i]), r)
 
-      if curr > max_val:
-        argmax = i
-        max_val = curr
+        if curr > max_val:
+          argmax = i
+          max_val = curr
         selected.remove(i)
+
 
     if argmax:
       selected.add(argmax) #internal: zero-based.
+      before = F1_kobayashi(selected, sentenceVectors)
     else:
       break
 
